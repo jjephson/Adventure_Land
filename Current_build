@@ -1,0 +1,67 @@
+var attack_mode=true
+
+setInterval(function(){	
+	//use mp potions only when the character's mp is low
+	if(character.mp < (0.40 * character.max_mp)) { parent.use('mp'); }
+    if(character.hp < (0.40 * character.max_hp)) { parent.use('hp'); }
+	loot();
+	if(!attack_mode || character.moving) return;
+	var target=get_targeted_monster();
+	
+	/*Stole this from hmarley on Discord. Returns single the 'true range'
+	that exists between your position and the target*/
+	function target_range(target) {
+		var xVec = target.real_x-character.real_x;
+		var yVec = target.real_y-character.real_y;
+		var actualRange = sqrt(xVec*xVec + yVec*yVec);	
+		return actualRange
+	}
+	function damageDealt(target) {
+		var damageDone = ((1 - target.resistance / 1000) * character.attack);
+		return damageDone
+	}
+	
+	//Targetting parameters. Rewrite these at some point for better filtering.
+	if(!target){ 
+		target=get_nearest_monster(
+		{min_xp:800,max_att:30,no_target:true,path_check:true});
+		if(target) change_target(target);
+		else {
+			set_message("Nothing to attack");
+			return;
+		}
+	}
+	
+	if(!in_attack_range(target)) {
+		move(character.real_x+(target.real_x-character.real_x)/2,
+			 character.real_y+(target.real_y-character.real_y)/2);
+	}
+	else if(can_attack(target)) {
+		set_message("Killing!");
+		//if(character.hp < (0.50 * character.max_hp)) { parent.player_heal.call(character); }
+		attack(target);
+		/* The kiting mechanism */
+		if(target_range(target)<character.range/4 &&
+		   can_attack(target)) {
+			var evadeOptions = Math.floor((Math.random() * 8) +1);
+			if(evadeOptions == 1) {
+				move(character.real_x+90,character.real_y+90);}
+			if(evadeOptions == 2) {
+				move(character.real_x-90,character.real_y+90);}
+			if(evadeOptions == 3) {
+				move(character.real_x-90,character.real_y-90);}
+			if(evadeOptions == 4) {
+				move(character.real_x+90,character.real_y-90);}
+			if(evadeOptions == 5) {move(character.real_x+90,character.real_y+5);}
+			if(evadeOptions == 6) {move(character.real_x-90,character.real_y-5);}
+			if(evadeOptions == 7) {move(character.real_x+5,character.real_y+90);}
+			if(evadeOptions == 8) {move(character.real_x-5,character.real_y-90);}
+		}
+		/* Skill casting automation, needs major overhaul, most of this
+		is just plain wrong.
+		if(damageDealt(target) < (target.hp*4) && 
+		   character.mp > 600) {
+			character.use[5](target);
+		} */
+	}
+},250/4);
