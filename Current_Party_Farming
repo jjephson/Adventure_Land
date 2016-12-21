@@ -1,0 +1,31 @@
+var attack_mode=true
+
+setInterval(function(){
+    var leader = get_player(character.party);
+
+    if(character.hp<300 || character.mp<200) use_hp_or_mp();
+loot();
+
+    if(!attack_mode || character.moving) return;
+    if(character.real_x-leader.real_x < 50 && leader.real_y-character.real_y < 50);
+    { move(leader.real_x+20,leader.real_y+20)
+    }
+
+    var target=get_targeted_monster();
+    if(!target)
+    {
+        target=get_target_of(leader);
+    if(target) change_target(target);
+        else
+        {
+            set_message("No Monsters");
+            return;
+        }
+    }
+(can_attack(target))
+    {
+        set_message("Attacking");
+        attack(target);
+    }
+
+},250);
