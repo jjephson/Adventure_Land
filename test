@@ -1,0 +1,175 @@
+var attack_mode=true
+
+//Automatic Potion Purchasing settings!
+var purchase_pots = true; //Set to true in order to allow potion purchases
+var buy_hp = true; //Set to true in order to allow hp potion purchases
+var buy_mp = true; //Set to true in order to allow mp potion purchases
+var hp_potion = 'hpot0'; //+200 HP Potion = 'hpot0', +400 HP Potion = 'hpot1' [always keep '' around it]
+var mp_potion = 'mpot0'; //+300 MP Potion = 'mpot0', +500 MP Potion = 'mpot1' [always keep '' around it]
+var pots_minimum = 50; //If you have less than this, you will buy
+var pots_to_buy = 1000; //This is how many you will buy
+
+window.aldc_apikey = 'auto-lxtlnzp9uogkog0c'; // Replace API_KEY with your API key => Ask me for one, on discord, PM or email
+window.aldc_second_server = 'http://new.tyuio.tk:13726';
+	window.aldc_use_upgrade = true;
+	window.aldc_use_compound = true;
+	window.aldc_use_exchange = true;
+	// USAGE INFORMATION:
+	// When aldc_use_upgrade = true, send upgrade data when using parent.upgradeit(item_name, max_level, options_object).
+	//      options_object defaults to { buy_item: false, buy_scrolls: true, stop_on_success: false }
+	// When aldc_use_compound = true, send compound data when using parent.compoundit(item_name, item_level_to_compound); i.e compoundit('hpbelt', 0) tries to create an hpbelt+1
+	// When aldc_use_exchange = true, send exchange data when using parent.exchangeit(inventory_slot)
+	$.getScript('http://adventurecode.club/script?t='+(new Date).getTime(), function() {
+		//game_log('Thank you for contributing your drop data!', '#FFFF00');
+	});	
+
+setInterval(function(){	
+	
+
+    //Kills and gold to level
+    updateGUI();
+    
+    //Purchases Potions when below threshold
+    if (purchase_pots) {
+        purchase_potions(buy_hp, buy_mp);
+    }
+    
+	//use mp potions only when the character's mp is low
+	if(character.mp < (0.40 * character.max_mp)) { parent.use('mp'); }
+    if(character.hp < (0.40 * character.max_hp)) { parent.use('hp'); }
+	loot();
+	if(!attack_mode || character.moving) return;
+	var target=get_targeted_monster();
+	
+	/*Stole this from hmarley on Discord. Returns single the 'true range'
+	that exists between your position and the target*/
+	function target_range(target) {
+		var xVec = target.real_x-character.real_x;
+		var yVec = target.real_y-character.real_y;
+		var actualRange = sqrt(xVec*xVec + yVec*yVec);	
+		return actualRange
+	}
+	function damageDealt(target) {
+		var damageDone = ((1 - target.resistance / 1000) * character.attack);
+		return damageDone
+	}
+	
+	//Targetting parameters. Rewrite these at some point for better filtering.
+	if(!target){ 
+		target=get_nearest_monster(
+		{min_xp:300,max_att:16,no_target:true,path_check:true});
+		if(target) change_target(target);
+		else {
+			set_message("Nothing to attack");
+			return;
+		}
+	}
+	
+	if(!in_attack_range(target)) {
+		move(character.real_x+(target.real_x-character.real_x)/2,
+			 character.real_y+(target.real_y-character.real_y)/2);
+	}
+	else if(can_attack(target)) {
+		set_message("Killing!");
+		//if(character.hp < (0.50 * character.max_hp)) { parent.player_heal.call(character); }
+		attack(target);
+		/* The kiting mechanism */
+		if(target_range(target)<character.range/4 &&
+		   can_attack(target)) {
+			var evadeOptions = Math.floor((Math.random() * 8) +1);
+			if(evadeOptions == 1) {
+				move(character.real_x+90,character.real_y+90);}
+			if(evadeOptions == 2) {
+				move(character.real_x-90,character.real_y+90);}
+			if(evadeOptions == 3) {
+				move(character.real_x-90,character.real_y-90);}
+			if(evadeOptions == 4) {
+				move(character.real_x+90,character.real_y-90);}
+			if(evadeOptions == 5) {move(character.real_x+90,character.real_y+5);}
+			if(evadeOptions == 6) {move(character.real_x-90,character.real_y-5);}
+			if(evadeOptions == 7) {move(character.real_x+5,character.real_y+90);}
+			if(evadeOptions == 8) {move(character.real_x-5,character.real_y-90);}
+		}
+	}
+},1000/4);
+
+
+// Automatic Potion Purchase
+function purchase_potions(buyHP, buyMP) {
+  let [hpslot, hppot] = find_item(i => i.name == hp_potion);
+  let [mpslot, mppot] = find_item(i => i.name == mp_potion);
+
+  if (buyHP && (!hppot || hppot.q < pots_minimum)) {
+    parent.buy(hp_potion, pots_to_buy);
+    set_message("Buying HP pots.");
+  }
+  if (buyMP && (!mppot || mppot.q < pots_minimum)) {
+    parent.buy(mp_potion, pots_to_buy);
+    set_message("Buying MP pots.");
+  }
+}
+
+function find_item(filter) {
+  for (let i = 0; i < character.items.length; i++) {
+    let item = character.items[i];
+
+    if (item && filter(item))
+      return [i, character.items[i]];
+  }
+
+  return [-1, null];
+}
+
+
+// Kills + gold to level
+function initGUI() {
+  let $ = parent.$;
+  let brc = $('#bottomrightcorner');
+  $('#xpui').css({
+    fontSize: '20px',
+  });
+
+  brc.find('.xpsui').css({
+    background: 'url("https://i.imgur.com/zCb8PGK.png")',
+    backgroundSize: 'cover'
+  });
+
+  brc.find('#goldui').remove();
+  let gb = $('<div id="goldui"></div>').css({
+    background: 'black',
+    border: 'solid gray',
+    borderWidth: '0 5px',
+    height: '34px',
+    lineHeight: '30px',
+    fontSize: '20px',
+    color: '#FFD700',
+    textAlign: 'center',
+  });
+  gb.insertBefore($('#gamelog'));
+}
+
+var last_target = null;
+
+function updateGUI() {
+  let $ = parent.$;
+  let xp_percent = ((character.xp / parent.G.levels[character.level]) * 100).toFixed(2);
+  let xp_string = `LV${character.level} ${xp_percent}%`;
+  if (parent.ctarget && parent.ctarget.type == 'monster') {
+    last_target = parent.ctarget.mtype;
+  }
+  if (last_target) {
+    let xp_missing = parent.G.levels[character.level] - character.xp;
+    let monster_xp = parent.G.monsters[last_target].xp;
+    let party_modifier = character.party ? 1.5 / parent.party_list.length : 1;
+    let monsters_left = Math.ceil(xp_missing / (monster_xp * party_modifier * character.xpm));
+    xp_string += ` (${ncomma(monsters_left)} kills to go!)`;
+  }
+  $('#xpui').html(xp_string);
+  $('#goldui').html(ncomma(character.gold) + " GOLD");
+}
+
+function ncomma(x) {
+  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+initGUI();
