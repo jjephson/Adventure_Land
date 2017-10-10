@@ -1,0 +1,152 @@
+var stopUpgrading = false;
+
+var upgradeSlot41 = true;
+var maxUpgradeLevel = 7;
+var lastUpgrade = null;
+var slot41Item = null;
+
+if(getInventorySlot(41) != null)
+{
+	slot41Item = getInventorySlot(41).name
+}
+
+setInterval(function(){
+	if(upgradeSlot41 == true && stopUpgrading == false)
+	{
+		tryUpgradeSlot41Item()
+	}
+},45);
+
+function tryUpgradeSlot41Item()
+{
+	if((lastUpgrade == null || new Date() - lastUpgrade > 50))
+	{
+		var item = scanInventoryForItem(slot41Item, maxUpgradeLevel);
+		var grade = item_grade(item);
+		var itemIndex = scanInventoryForItemIndex(slot41Item, 
+												  maxUpgradeLevel);
+		var itemMax = scanInventoryForItem(slot41Item, maxUpgradeLevel + 1);
+		if(item != null)
+		{
+			var scrollToUse = null;
+
+			if(grade == 0)
+			{
+				scrollToUse = "scroll0";
+			}
+			else if(grade == 1)
+			{
+				scrollToUse = "scroll1";
+			}
+			else if(grade == 2)
+			{
+				scrollToUse = "scroll2";
+			}
+
+			if(scrollToUse != null)
+			{
+				var scroll = scanInventoryForItem(scrollToUse);
+				
+				if(scroll == null)
+				{
+					buy(scrollToUse, 1);
+				}
+
+				var scrollIndex = scanInventoryForItemIndex(scrollToUse);
+
+				upgrade(itemIndex, scrollIndex, null);
+			}
+		}
+		else if (item == null)
+		{
+			buy(slot41Item, 1);
+		}
+
+		lastUpgrade = new Date();
+	}
+}
+
+function scanInventoryForItem(name, maxLevel)
+{
+	for(var i = 0; i <= 41; i++)
+	{
+		var curSlot = character.items[i];
+		
+		var itemGrade = item_grade(curSlot);
+		
+		if(curSlot != null && curSlot.name == name)
+		{
+			if(maxLevel == null || curSlot.level < maxLevel)
+			{
+				return curSlot
+			}
+		}
+	}
+}
+
+function scanInventoryForItemIndex(name, maxLevel)
+{
+	for(var i = 0; i <= 41; i++)
+	{
+		var curSlot = character.items[i];
+		
+		if(curSlot != null && curSlot.name == name)
+		{
+			if(maxLevel == null || curSlot.level < maxLevel)
+			{
+				return i
+			}
+		}
+	}
+}
+
+function getInventorySlot(slot)
+{
+	var slot = character.items[slot];
+	
+	return slot
+}
+
+if (parent.prev_handlersupgrade) {
+    for (let [event, handler] of parent.prev_handlersupgrade) {
+      parent.socket.removeListener(event, handler);
+    }
+}
+
+parent.prev_handlersupgrade = [];
+
+//handler pattern shamelessly stolen from JourneyOver
+function register_upgradehandler(event, handler) 
+{
+    parent.prev_handlersupgrade.push([event, handler]);
+    parent.socket.on(event, handler);
+};
+
+var consecutiveFailures = 0;
+
+function success_handler(event)
+{
+	if(event.message == "Item upgrade succeeded")
+	{
+		consecutiveFailures = 0;
+	}
+}
+
+function failure_handler(event)
+{
+	if(event == "Item upgrade failed")
+	{
+		consecutiveFailures++;
+		
+		if(consecutiveFailures > 10)
+		{
+			stopUpgrading = true;
+		}
+		
+		game_log(consecutiveFailures);
+	}
+}
+
+//Register event handlers
+register_upgradehandler("game_log", success_handler);
+register_upgradehandler("game_error", failure_handler);
