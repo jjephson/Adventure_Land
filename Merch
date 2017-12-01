@@ -11,7 +11,9 @@ var itemsToBuy = [
   {name: "dexring", level: 4, price: 1000000},
   {name: "dintring", level: 4, price: 1000000},
   {name: "t2dexamulet", level: 4, price: 25000000},
-  {name: "t2intamulet", level: 4, price: 25000000}
+  {name: "t2intamulet", level: 4, price: 25000000},
+  {name: "dexamulet", level: 3, price: 1000000},
+  {name: "intamulet", level: 3, price: 1000000}
  ]
 
 var lastBuy;
